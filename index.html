@@ -1,25 +1,3 @@
-<?php
-// index.php - Main Hotel Website (now PHP for session handling)
-session_start();
-
-// Enable full PHP error reporting for debugging.
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// Retrieve guest session data
-$isGuestLoggedIn = (isset($_SESSION['guest_loggedin']) && $_SESSION['guest_loggedin'] === true);
-$guestFullName = $isGuestLoggedIn ? htmlspecialchars($_SESSION['guest_full_name']) : '';
-$guestEmail = $isGuestLoggedIn ? htmlspecialchars($_SESSION['guest_email']) : '';
-$guestPhoneNumber = $isGuestLoggedIn ? htmlspecialchars($_SESSION['guest_phone_number']) : '';
-
-// Retrieve status message from session (for messages redirected from process_guest_booking.php)
-$statusMessageHtml = '';
-if (isset($_SESSION['status_message_index'])) {
-    $statusMessageHtml = $_SESSION['status_message_index'];
-    unset($_SESSION['status_message_index']); // Clear message after reading
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
