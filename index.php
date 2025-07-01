@@ -1,0 +1,2185 @@
+<?php
+// index.php - Main Hotel Website (now PHP for session handling)
+session_start();
+
+// Enable full PHP error reporting for debugging.
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Retrieve guest session data
+$isGuestLoggedIn = (isset($_SESSION['guest_loggedin']) && $_SESSION['guest_loggedin'] === true);
+$guestFullName = $isGuestLoggedIn ? htmlspecialchars($_SESSION['guest_full_name']) : '';
+$guestEmail = $isGuestLoggedIn ? htmlspecialchars($_SESSION['guest_email']) : '';
+$guestPhoneNumber = $isGuestLoggedIn ? htmlspecialchars($_SESSION['guest_phone_number']) : '';
+
+// Retrieve status message from session (for messages redirected from process_guest_booking.php)
+$statusMessageHtml = '';
+if (isset($_SESSION['status_message_index'])) {
+    $statusMessageHtml = $_SESSION['status_message_index'];
+    unset($_SESSION['status_message_index']); // Clear message after reading
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Supremacy Hotel Booking</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* General Body and Header Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #121212;
+      color: #f0e6c4;
+      font-family: 'Cinzel', serif;
+      scroll-behavior: smooth;
+    }
+
+    header {
+      text-align: center;
+      padding: 40px 20px 10px;
+      animation: fadeIn 1.5s ease-in;
+      position: relative;
+    }
+
+    header svg {
+      width: 80px;
+      transform: rotate(-10deg);
+      fill: #d4af37;
+    }
+
+    header h1 {
+      font-size: 48px;
+      background: linear-gradient(90deg, #d4af37, #f0e68c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 4px;
+      margin-bottom: 10px;
+    }
+
+    header h2 {
+      font-size: 16px;
+      color: #f5e8c7;
+      margin-bottom: 20px;
+    }
+
+    .location {
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #d4af37;
+    }
+
+    /* Room Cards Container */
+    .rooms {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 0 20px 40px;
+      max-width: 1200px;
+      margin: auto;
+      align-items: center;
+    }
+
+    /* Individual Room Card */
+    .room-card {
+      background-color: #1e1e1e;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      transition: transform 0.3s ease;
+      animation: slideUp 1s ease forwards;
+      position: relative;
+      width: 100%;
+      max-width: 450px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .room-card:hover {
+      transform: scale(1.03);
+    }
+
+    /* Horizontal Image Grid for Rooms */
+    .room-image-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        overflow-x: hidden;
+        width: 100%;
+        height: 250px;
+        position: relative;
+        gap: 5px;
+    }
+
+    .room-image-grid::-webkit-scrollbar {
+        display: none;
+    }
+    .room-image-grid {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .room-image-grid img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.3s ease;
+    }
+
+    /* Room Information and Dropdown */
+    .room-info {
+      padding: 15px;
+      text-align: center;
+    }
+
+    .room-info h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .room-info p {
+      color: #d4af37;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    /* Dropdown for View Activities & Meals */
+    .room-card select {
+      margin: 10px auto 15px;
+      padding: 10px 15px;
+      background-color: #d4af37;
+      border: none;
+      color: #121212;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: background 0.3s ease;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23121212%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%00-13.2-6.2H18.2c-4.1%200-7.9%201.5-10.9%204.6-3.2%203-5.2%207.2-5.2%2011.6%200%204.4%202%208.7%205.2%2011.8l124.7%20124.8c3.1%203.1%207.4%205.1%2011.8%205.1s8.7-2%2011.8-5.1L287%2093c3.1-3.2%205.2-7.4%205.2-11.8%200-4.4-2-8.7-5.2-11.9z%22%2F%3E%3C%2Fsvg%3E');
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 12px;
+      padding-right: 30px;
+      width: calc(100% - 30px);
+      max-width: 300px;
+      display: block;
+      z-index: 5;
+    }
+
+    .room-card select:hover {
+      background-color: #c2a135;
+    }
+
+    /* Room Details Styling */
+    .room-details {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 50%;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: #f0e6c4;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      text-align: center;
+      z-index: 2;
+    }
+
+    /* Room Services Styling */
+    .room-services {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      right: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: #f0e6c4;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      text-align: center;
+      z-index: 2;
+    }
+
+    .room-card .room-image-grid:hover + .room-info ~ .room-details,
+    .room-card .room-image-grid:hover + .room-info ~ .room-services {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .room-details h4, .room-services h4 {
+      margin-bottom: 10px;
+      color: #d4af37;
+      font-size: 18px;
+    }
+
+    .room-details ul, .room-services ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .room-details li, .room-services li {
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .room-details li i, .room-services li i {
+      margin-right: 8px;
+      color: #d4af37;
+      font-size: 16px;
+    }
+
+    /* Main "Book Now" Section */
+    .main-book-now-section {
+      text-align: center;
+      padding: 30px 20px;
+      background-color: #1e1e1e;
+      margin-top: 40px;
+      border-top: 1px solid #333;
+    }
+
+    .main-book-now-section h2 {
+      font-size: 28px;
+      color: #d4af37;
+      margin-bottom: 20px;
+    }
+
+    .main-book-now-section button {
+      padding: 15px 30px;
+      background-color: #d4af37;
+      color: #121212;
+      border: none;
+      border-radius: 8px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .main-book-now-section button:hover {
+      background-color: #c2a135;
+      transform: translateY(-2px);
+    }
+
+    /* Modals (Booking and Payment) */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+
+    .modal-content {
+      background-color: #1e1e1e;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 500px;
+      color: #f0e6c4;
+    }
+
+    .modal-content h3 {
+      margin-bottom: 20px;
+      text-align: center;
+      color: #d4af37;
+    }
+
+    .modal-content label {
+      display: block;
+      margin-top: 10px;
+    }
+
+    .modal-content input,
+    .modal-content select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      background-color: #333;
+      border: none;
+      color: #fff;
+      border-radius: 5px;
+    }
+
+    .modal-content button {
+      margin-top: 20px;
+      padding: 10px;
+      width: 100%;
+      background-color: #d4af37;
+      color: #121212;
+      border: none;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .close {
+      color: #f0e6c4;
+      float: right;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* Activities Section */
+    .activities {
+      padding: 40px 20px;
+      background-color: #181818;
+      color: #f0e6c4;
+      text-align: center;
+      display: none; /* Initial state: hidden */
+    }
+
+    .activities h2 {
+      font-size: 26px;
+      color: #d4af37;
+      margin-bottom: 30px;
+    }
+
+    .activity-section {
+      margin-bottom: 40px;
+    }
+
+    .activity-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .activity {
+      background-color: #222;
+      padding: 20px;
+      border-radius: 10px;
+      transition: 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .activity i {
+      font-size: 28px;
+      color: #d4af37;
+      margin-bottom: 10px;
+    }
+
+    .activity span {
+      font-size: 14px;
+      color: #f5f5f5;
+    }
+
+    .activity:hover {
+      transform: translateY(-5px);
+      background-color: #2a2a2a;
+    }
+
+    /* Animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Watermark and Footer */
+    .watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
+      font-size: 100px;
+      color: rgba(212, 175, 55, 0.05);
+      z-index: 0;
+      user-select: none;
+      pointer-events: none;
+      font-family: 'Cinzel', serif;
+      white-space: nowrap;
+    }
+    .footer {
+      background-color: #1e1e1e;
+      color: #f0e6c4;
+      text-align: center;
+      padding: 20px 10px;
+      font-size: 14px;
+      border-top: 1px solid #333;
+      margin-top: 40px;
+    }
+
+    .footer a {
+      color: #d4af37;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    /* Off-canvas Menu Styles */
+    .off-canvas-menu {
+      position: fixed;
+      top: 0;
+      right: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, #1e1e1e, #121212);
+      overflow-y: auto;
+      transition: right 0.5s ease-in-out;
+      z-index: 100;
+      padding-top: 60px;
+    }
+
+    .off-canvas-menu.active {
+      right: 0;
+    }
+
+    .off-canvas-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 30px;
+      color: #f0e6c4;
+      cursor: pointer;
+      z-index: 101;
+    }
+
+    /* Menu Toggle Button */
+    #menu-toggle {
+      position: absolute;
+      top: 30px;
+      right: 20px;
+      background: none;
+      border: none;
+      font-size: 30px;
+      color: #d4af37;
+      cursor: pointer;
+      z-index: 50;
+      padding: 10px;
+    }
+
+    /* Dropdown Menu specific styles */
+    .dropdown-menu {
+        list-style: none;
+        padding: 0;
+        margin: 50px auto 20px auto;
+        max-width: 300px;
+        text-align: center;
+    }
+
+    .dropdown-menu li {
+        margin-bottom: 25px;
+    }
+
+    .dropdown-menu a {
+        color: #f0e6c4;
+        text-decoration: none;
+        font-size: 24px;
+        padding: 10px 20px;
+        border: 2px solid #d4af37;
+        border-radius: 15px;
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+        display: inline-block;
+        width: 100%;
+        box-shadow: 0 0 10px rgba(212, 175, 55, 0.2);
+    }
+
+    .dropdown-menu a:hover {
+        background-color: #d4af37;
+        color: #121212;
+        border-color: #f0e68c;
+        transform: translateY(-3px);
+        box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+    }
+
+    /* Styles for the content sections */
+    .menu-section {
+        padding: 20px;
+        text-align: center;
+        display: none;
+    }
+
+    .menu-section.active {
+        display: block;
+    }
+
+    /* Main menu category styling */
+    #our-menu-section {
+        padding: 40px 20px;
+        background-color: #181818;
+        color: #f0e6c4;
+        display: none; /* Initially hidden, controlled by JS and menu */
+    }
+
+    #our-menu-section h2 {
+      font-size: 40px;
+      color: #d4af37;
+      margin-bottom: 40px;
+      letter-spacing: 2px;
+      text-shadow: 1px 1px 4px #000;
+    }
+
+    .menu-category {
+      margin-bottom: 50px;
+    }
+
+    .menu-category h3 {
+      font-size: 28px;
+      color: #f0e6c4;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #d4af37;
+      display: inline-block;
+      padding-bottom: 10px;
+    }
+
+    .menu-category ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 auto;
+    }
+
+    .menu-category li {
+      font-size: 18px;
+      padding: 10px 0;
+      color: #e7cfa9;
+      border-bottom: 1px solid #333;
+      transition: color 0.3s ease;
+    }
+
+    .menu-category li:hover {
+      color: #d4af37;
+    }
+
+    /* Food Order Section Styling */
+    .food-order-section {
+      background-color: #1e1e1e;
+      padding: 30px 20px;
+      margin: 20px auto;
+      max-width: 700px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      text-align: center;
+    }
+
+    .food-order-section h2 {
+      color: #d4af37;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .food-order-section label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 16px;
+      color: #f0e6c4;
+    }
+
+    .food-order-section select {
+      width: 100%; /* Changed from calc(100% - 20px) for consistency */
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      border: 1px solid #333;
+      background-color: #222;
+      color: #f0e6c4;
+      font-size: 16px;
+    }
+
+    #order-summary {
+      background-color: #222;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    #order-summary h3 {
+      color: #d4af37;
+      margin-bottom: 15px;
+      font-size: 20px;
+      text-align: center;
+    }
+
+    #global-item-list div {
+      padding: 8px 0;
+      border-bottom: 1px dashed #444;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    #global-item-list div:last-child {
+      border-bottom: none;
+    }
+
+    #global-item-list .remove-item {
+      background-color: #cc0000;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background-color 0.2s ease;
+    }
+
+    #global-item-list .remove-item:hover {
+      background-color: #ff3333;
+    }
+
+    #global-total {
+      font-size: 20px;
+      font-weight: bold;
+      color: #f0e6c4;
+      text-align: right;
+      margin-top: 15px;
+    }
+
+    .food-order-section button {
+      padding: 12px 25px;
+      background-color: #d4af37;
+      color: #121212;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 18px;
+      margin-top: 25px;
+      transition: background-color 0.3s ease;
+      width: 100%;
+    }
+
+    .food-order-section button:hover {
+      background-color: #c2a135;
+    }
+
+    /* Camping Fees Table Styling */
+    .camping-fees-section {
+      margin: 40px auto;
+      max-width: 800px;
+      background-color: #1e1e1e;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+      padding: 20px;
+      display: none;
+    }
+
+    .camping-fees-section.active {
+      display: block;
+    }
+
+    .camping-fees-section h3 {
+      font-size: 28px;
+      color: #d4af37;
+      margin-bottom: 20px;
+      text-align: center;
+      border-bottom: 2px solid #d4af37;
+      padding-bottom: 10px;
+    }
+
+    .camping-fees-section table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 16px;
+    }
+
+    .camping-fees-section th, .camping-fees-section td {
+      padding: 12px 15px;
+      border: 1px solid #333;
+      text-align: center;
+    }
+
+    .camping-fees-section thead th {
+      background-color: #333;
+      color: #f0e6c4;
+      font-weight: bold;
+    }
+
+    .camping-fees-section tbody tr:nth-child(even) {
+      background-color: #222;
+    }
+
+    .camping-fees-section tbody tr:hover {
+      background-color: #2a2a2a;
+    }
+
+    .camping-fees-section .peak {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+
+    .camping-fees-section .low {
+      color: #2ecc71;
+      font-weight: bold;
+    }
+
+    .camping-exclusions {
+        margin-top: 30px;
+        text-align: left;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .camping-exclusions h3 {
+        font-size: 20px;
+        color: #d4af37;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #444;
+        padding-bottom: 8px;
+    }
+
+    .camping-exclusions ul {
+        list-style: disc;
+        list-style-position: inside;
+        color: #f0e6c4;
+        font-size: 15px;
+    }
+
+    .camping-exclusions li {
+        margin-bottom: 8px;
+    }
+
+    /* Updated Menu Image Grid */
+    .menu-image-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 15px;
+        align-items: stretch;
+    }
+
+    .menu-image-grid .left-images {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .menu-image-grid img {
+        width: 100%;
+        height: 180px;
+        object-fit: cover;
+        border-radius: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        transition: transform 0.3s ease-in-out;
+        transform: skewY(-3deg) rotateZ(1deg);
+    }
+
+    .menu-image-grid img:hover {
+        transform: skewY(0deg) rotateZ(0deg) scale(1.03);
+    }
+
+    .menu-image-grid .right-image img {
+        transform: skewY(3deg) rotateZ(-1deg);
+    }
+    .menu-image-grid .right-image img:hover {
+        transform: skewY(0deg) rotateZ(0deg) scale(1.03);
+    }
+
+    /* Hide menu categories by default */
+    .menu-category-content {
+        display: none;
+        max-width: 90%;
+        margin: 0 auto;
+    }
+
+    .menu-category-content.active {
+        display: block;
+    }
+
+    /* Dropdown for menu categories */
+    #menu-category-select {
+        width: calc(100% - 40px);
+        max-width: 400px;
+        padding: 10px 15px;
+        margin: 20px auto;
+        background-color: #2a2a2a;
+        color: #f0e6c4;
+        border: 1px solid #d4af37;
+        border-radius: 8px;
+        font-size: 1.1em;
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23f0e6c4%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%00-13.2-6.2H18.2c-4.1%200-7.9%201.5-10.9%204.6-3.2%203-5.2%207.2-5.2%2011.6%200%204.4%202%208.7%205.2%2011.8l124.7%20124.8c3.1%203.1%207.4%205.1%2011.8%205.1s8.7-2%2011.8-5.1L287%2093c3.1-3.2%205.2-7.4%205.2-11.8%200-4.4-2-8.7-5.2-11.9z%22%2F%3E%3C%2Fsvg%3E');
+        background-repeat: no-repeat;
+        background-position: right 15px top 50%;
+        background-size: 1em auto;
+        cursor: pointer;
+    }
+
+    #menu-category-select:focus {
+        outline: none;
+        border-color: #f0e68c;
+        box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.3);
+    }
+
+    /* Flexbox for side-by-side menu content */
+    .menu-content-flex {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin-top: 20px;
+        justify-content: center;
+        align-items: flex-start;
+        text-align: left;
+    }
+
+    /* Enhanced style for the menu list box */
+    .menu-list-box {
+        background-color: #FFF8DC;
+        border: 2px solid #d4af37;
+        border-radius: 30px;
+        padding: 25px;
+        box-shadow: 0 0 15px rgba(212, 175, 55, 0.4), inset 0 0 10px rgba(212, 175, 55, 0.2);
+        flex: 1;
+        width: 100%;
+        overflow: hidden;
+        position: relative;
+        transform: rotateZ(2deg);
+        transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        color: #121212;
+    }
+
+    .menu-list-box:hover {
+        transform: rotateZ(0deg) scale(1.01);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.5);
+    }
+
+    .menu-list-box ul {
+        padding: 0;
+        margin: 0;
+    }
+
+    .menu-list-box li {
+        border-bottom: 1px dashed #999;
+        padding: 12px 0;
+        font-size: 1.1em;
+        position: relative;
+        z-index: 1;
+        color: #333;
+    }
+
+    .menu-list-box li:last-child {
+        border-bottom: none;
+    }
+
+    .menu-image-wrapper {
+        flex: 1;
+        width: 100%;
+        min-width: 250px;
+        order: -1;
+        background-color: #FFF8DC;
+        padding: 20px;
+        border-radius: 20px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(255, 255, 255, 0.3);
+        transform: rotateZ(-2deg);
+        transition: transform 0.3s ease-in-out;
+    }
+
+    .menu-image-wrapper:hover {
+        transform: rotateZ(0deg) scale(1.01);
+    }
+
+    /* Form Validation Styles */
+    .input-error {
+      border: 2px solid #ff6b6b !important;
+    }
+
+    .error-message {
+      color: #ff6b6b;
+      font-size: 0.8em;
+      margin-top: 5px;
+    }
+
+    /* Availability Checker */
+    #availability-checker {
+      margin: 15px 0;
+      display: none;
+    }
+
+    #availability-message {
+      margin-bottom: 10px;
+      min-height: 24px;
+    }
+
+    /* Reviews Section */
+    .reviews-container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .review {
+      background: #1e1e1e;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-left: 4px solid #d4af37;
+    }
+
+    .review-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .review-author {
+      font-weight: bold;
+    }
+
+    .review-rating {
+      color: #d4af37;
+    }
+
+    .review-date {
+      color: #aaa;
+      font-size: 0.9em;
+      margin-bottom: 10px;
+    }
+
+    .add-review-btn {
+      background: #d4af37;
+      color: #121212;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+
+    /* Gallery Section */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 15px;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .gallery-item {
+      overflow: hidden;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: transform 0.3s ease;
+    }
+
+    .gallery-item:hover {
+      transform: scale(1.03);
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      transition: transform 0.5s ease;
+    }
+
+    .gallery-item:hover img {
+      transform: scale(1.1);
+    }
+
+    /* General message style (for status_message_index from PHP) */
+    .php-status-message {
+        position: fixed;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: fit-content;
+        max-width: 90%;
+        padding: 15px 25px;
+        border-radius: 0 0 8px 8px; /* Rounded bottom corners */
+        text-align: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        z-index: 1000; /* Ensure it's on top */
+        animation: slideDownFadeIn 0.5s ease-out forwards;
+        display: none; /* Hidden by default, shown by JS if content exists */
+        opacity: 0; /* For fade-in animation */
+    }
+
+    .php-status-message.active {
+        display: block; /* Show when active */
+    }
+
+    /* Specific styles for PHP success/error/info messages */
+    .php-status-message.success {
+        background-color: #1a4a1a;
+        color: #2ecc71;
+        border: 1px solid #2ecc71;
+    }
+    .php-status-message.error {
+        background-color: #4a1a1a;
+        color: #ff6b6b;
+        border: 1px solid #ff6b6b;
+    }
+    .php-status-message.info { /* NEW STYLE for info messages */
+        background-color: #1a3a4a; /* A blue-ish background */
+        color: #87CEEB; /* A lighter blue color */
+        border: 1px solid #87CEEB; /* Matching border */
+    }
+
+    @keyframes slideDownFadeIn {
+        from { top: -50px; opacity: 0; }
+        to { top: 0; opacity: 1; }
+    }
+
+
+    /* Mobile Styles */
+    @media (max-width: 768px) {
+      /* Larger touch targets */
+      button, select, input, .room-card {
+        min-height: 44px;
+      }
+      
+      /* Room card adjustments */
+      .room-card {
+        max-width: 100%;
+        margin-bottom: 20px;
+      }
+      
+      .room-image-grid {
+        height: 200px;
+      }
+      
+      /* Date picker adjustments */
+      input[type="date"] {
+        min-height: 44px;
+        font-size: 16px;
+      }
+      
+      /* Form field spacing */
+      .modal-content input, 
+      .modal-content select {
+        margin-bottom: 15px;
+      }
+
+      /* Gallery adjustments */
+      .gallery-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+
+      /* Menu layout adjustments */
+      .menu-content-flex {
+        flex-direction: column;
+      }
+
+      .menu-list-box {
+        width: 100%;
+        margin-left: 0;
+      }
+      
+      .menu-image-wrapper {
+        width: 100%;
+        margin-right: 0;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .menu-content-flex {
+          flex-direction: row;
+          align-items: flex-start;
+      }
+
+      .menu-list-box {
+          width: 50%;
+          margin-left: 15px;
+      }
+      
+      .menu-image-wrapper {
+          width: 50%;
+          margin-right: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header id="home-section">
+    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+      <path d="M5 18l10 15 12-10 12 10 10-15 10 30H5l10-30z"/>
+    </svg>
+    <h1>SUPREMACY HOTEL</h1>
+    <h2>Where Luxury Meets Comfort</h2>
+    <button id="menu-toggle" aria-label="Open Menu"><i class="fas fa-bars"></i></button>
+  </header>
+  <div class="location">📍 Location: Nairobi</div>
+  <div class="watermark">Supremacy Hotel</div>
+
+  
+  <div id="phpStatusMessage" class="php-status-message"></div>
+
+  <div class="rooms">
+    <div class="room-card">
+      <div class="room-image-grid">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\standardlivingroom.jpeg" alt="Standard Room Living Area" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Standard+Living';">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\Standard.jpeg" alt="Standard Room Bedroom" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Standard+Bed';">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\standardbathroom.jpeg" alt="Standard Room Bathroom" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Standard+Bath';">
+      </div>
+      <div class="room-info">
+        <h3>Standard Room</h3>
+        <p>KES 15,500 / night</p>
+      </div>
+      <select onchange="handleRoomDropdown(this.value)">
+          <option value="">View Activities & Meals</option>
+          <option value="meals">Meals</option>
+          <option value="indoor-activities">Indoor Activities</option>
+          <option value="outdoor-activities">Outdoor Activities</option>
+          <option value="camping-fees">Camping Fees</option>
+          <option value="gallery">Gallery</option>
+          <option value="reviews">Reviews</option>
+      </select>
+      <div class="room-details">
+        <h4>Room Features</h4>
+        <ul>
+          <li><i class="fas fa-bed"></i> Comfortable Queen-Size Bed</li>
+          <li><i class="fas fa-wifi"></i> Complimentary Wi-Fi</li>
+          <li><i class="fas fa-city"></i> City View</li>
+          <li><i class="fas fa-bath"></i> Private Bathroom</li>
+        </ul>
+      </div>
+      <div class="room-services">
+        <h4>Room Services</h4>
+        <ul>
+          <li><i class="fas fa-concierge-bell"></i> Basic Concierge</li>
+          <li><i class="fas fa-tshirt"></i> Laundry Service (Paid)</li>
+          <li><i class="fas fa-broom"></i> Daily Housekeeping</li>
+          <li><i class="fas fa-phone-alt"></i> Wake-up Call</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="room-card">
+      <div class="room-image-grid">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\spaciouslivingroom.jpeg" alt="Spacious Room Living Area" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Spacious+Living';">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\spacious.jpeg" alt="Spacious Room Bedroom" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Spacious+Bed';">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\spaciousbathroom.jpeg" alt="Spacious Room Bathroom" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Spacious+Bath';">
+      </div>
+      <div class="room-info">
+        <h3>Spacious Room</h3>
+        <p>KES 18,500 / night</p>
+      </div>
+      <select onchange="handleRoomDropdown(this.value)">
+          <option value="">View Activities & Meals</option>
+          <option value="meals">Meals</option>
+          <option value="indoor-activities">Indoor Activities</option>
+          <option value="outdoor-activities">Outdoor Activities</option>
+          <option value="camping-fees">Camping Fees</option>
+          <option value="gallery">Gallery</option>
+          <option value="reviews">Reviews</option>
+      </select>
+      <div class="room-details">
+        <h4>Room Features</h4>
+        <ul>
+          <li><i class="fas fa-king"></i> King-Size Bed</li>
+          <li><i class="fas fa-couch"></i> Comfortable Seating Area</li>
+          <li><i class="fas fa-cloud-sun"></i> Private Balcony</li>
+          <li><i class="fas fa-wine-bottle"></i> Mini-Fridge</li>
+        </ul>
+      </div>
+      <div class="room-services">
+        <h4>Room Services</h4>
+        <ul>
+          <li><i class="fas fa-concierge-bell"></i> Enhanced Concierge</li>
+          <li><i class="fas fa-tshirt"></i> Laundry Service (2 items free)</li>
+          <li><i class="fas fa-utensils"></i> Room Service (Limited Menu)</li>
+          <li><i class="fas fa-phone-alt"></i> Personalized Wake-up</li>
+          <li><i class="fas fa-parking"></i> Valet Parking</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="room-card">
+      <div class="room-image-grid">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\ensuitelivingroom.jpeg" alt="Master Ensuite Living Area" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Ensuite+Living';">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\ensuite.jpeg" alt="Master Ensuite Bedroom" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Ensuite+Bed';">
+        <img src="SUPREMACY HOTEL SYSTEM\ROOMS\ensuitebathroom.jpeg" alt="Master Ensuite Bathroom" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Ensuite+Bath';">
+      </div>
+      <div class="room-info">
+        <h3>Master Ensuite</h3>
+        <p>KES 23,500 / night</p>
+      </div>
+      <select onchange="handleRoomDropdown(this.value)">
+          <option value="">View Activities & Meals</option>
+          <option value="meals">Meals</option>
+          <option value="indoor-activities">Indoor Activities</option>
+          <option value="outdoor-activities">Outdoor Activities</option>
+          <option value="camping-fees">Camping Fees</option>
+          <option value="gallery">Gallery</option>
+          <option value="reviews">Reviews</option>
+      </select>
+      <div class="room-details">
+        <h4>Room Features</h4>
+        <ul>
+          <li><i class="fas fa-crown"></i> Super King-Size Bed</li>
+          <li><i class="fas fa-chair"></i> Separate Living Area</li>
+          <li><i class="fas fa-shower"></i> Large Bathroom with Bathtub</li>
+          <li><i class="fas fa-toilet-paper"></i> Premium Toiletries</li>
+        </ul>
+      </div>
+      <div class="room-services">
+        <h4>Room Services</h4>
+        <ul>
+          <li><i class="fas fa-concierge-bell"></i> Dedicated Butler Service</li>
+          <li><i class="fas fa-tshirt"></i> Complimentary Laundry</li>
+          <li><i class="fas fa-utensils"></i> 24/7 Room Service (Full Menu)</li>
+          <li><i class="fas fa-car-side"></i> Airport Transfer</li>
+          <li><i class="fas fa-champagne-glasses"></i> Welcome Drinks</li>
+          <li><i class="fas fa-bell"></i> Priority Check-in/out</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-book-now-section">
+      <h2>Ready to Book Your Stay?</h2>
+      <button onclick="openBookingModal()">Book Now</button>
+  </div>
+
+  <div id="bookingModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeBookingModal()">&times;</span>
+      <h3>Book Your Stay</h3>
+      <!-- IMPORTANT: Form action is now process_guest_booking.php -->
+      <form id="bookingForm" action="process_guest_booking.php" method="post">
+        <label for="fullName">Full Name</label>
+        <input type="text" id="fullName" name="name" required>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="phoneNumber">Phone Number</label>
+        <input type="tel" id="phoneNumber" name="phone" required>
+
+        <label for="checkInDate">Check-in Date</label>
+        <input type="date" id="checkInDate" name="checkin" required>
+
+        <label for="checkOutDate">Check-out Date</label>
+        <input type="date" id="checkOutDate" name="checkout" required>
+
+        <label for="numGuests">Number of Guests</label>
+        <input type="number" id="numGuests" name="guests" min="1" value="1" required>
+
+        <label for="roomTypeSelectBooking">Type of Room</label>
+        <select id="roomTypeSelectBooking" name="roomType">
+          <option value="Standard Room">Standard Room</option>
+          <option value="Spacious Room">Spacious Room</option>
+          <option value="Master Ensuite">Master Ensuite</option>
+        </select>
+
+        <div id="availability-checker">
+          <p id="availability-message"></p>
+          <button type="button" onclick="checkAvailability()">Check Availability</button>
+        </div>
+
+        <!-- This payment method field is for client-side display and NOT submitted to dashboard.php -->
+        <label for="paymentMethod">Method of Payment</label>
+        <select id="paymentMethod" name="payment">
+          <option value="Mobile Payment">Mobile Payment</option>
+          <option value="Card">Card</option>
+          <option value="Bank transfer">Bank transfer</option>
+        </select>
+        <input type="hidden" name="csrfToken" id="csrfToken">
+        <button type="submit">Confirm Booking</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="offCanvasMenu" class="off-canvas-menu">
+    <span class="off-canvas-close" onclick="toggleMenu()">&times;</span>
+    <ul class="dropdown-menu">
+      <li><a href="#home-section" onclick="toggleMenu('home')">Home</a></li>
+      <li><a href="#camping-fees-section" onclick="toggleMenu('camping-fees')">Camping Fees</a></li>
+      <li><a href="#our-menu-section" onclick="toggleMenu('our-menu')">Supremacy Hotel Menu</a></li>
+      <li><a href="#activities-section" onclick="toggleMenu('activities')">Activities</a></li>
+      <li><a href="#gallery-section" onclick="toggleMenu('gallery')">Gallery</a></li>
+      <li><a href="#reviews-section" onclick="toggleMenu('reviews')">Reviews</a></li>
+      <li class="guest-auth-links"> {/* Conditional links will be handled by JS */}
+        <a href="guest_login.php" id="guestLoginLink" onclick="closeMenu()">Guest Login</a>
+        <a href="guest_register.php" id="guestRegisterLink" onclick="closeMenu()">Guest Register</a>
+        <a href="my_bookings.php" id="myBookingsLink" onclick="closeMenu()">My Bookings</a>
+        <a href="guest_logout.php" id="guestLogoutLink" onclick="closeMenu()">Guest Logout</a>
+      </li>
+    </ul>
+  </div>
+
+  
+   <!-- Camping Fees Section -->
+  <section  id="camping-fees-section" class="camping-fees-section menu-section">
+    <h3>Camping Fees</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Adult (per night)</th>
+                <th>Child (per night)</th>
+                <th>Peak Season Surcharge</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Standard Tent Site</td>
+                <td>KES 1,500</td>
+                <td>KES 750</td>
+                <td class="peak">20%</td>
+            </tr>
+            <tr>
+                <td>Deluxe Tent Site</td>
+                <td>KES 2,500</td>
+                <td>KES 1,250</td>
+                <td class="peak">20%</td>
+            </tr>
+            <tr>
+                <td>Own Tent Fee</td>
+                <td>KES 800</td>
+                <td>KES 400</td>
+                <td class="peak">No Surcharge</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="camping-exclusions">
+        <h3>Exclusions:</h3>
+        <ul>
+            <li>Camping gear rental (tents, sleeping bags, etc.)</li>
+            <li>Meals and beverages</li>
+            <li>Guided tours or specialized activities</li>
+            <li>Park fees</li>
+            <li>Personal insurance</li>
+        </ul>
+        <p style="margin-top: 15px; font-size: 0.9em; color: #aaa;">Peak season: December 15th - January 15th, and July 1st - August 31st. Surcharge applies during these periods.</p>
+    </div>
+  </section>
+
+  <section id="our-menu-section" class="menu-section">
+    <h2>Our Exquisite Menu</h2>
+    <select id="menu-category-select" onchange="showMenuCategory()">
+        <option value="breakfast">Breakfast</option>
+        <option value="lunch">Lunch</option>
+        <option value="dinner">Dinner</option>
+        <option value="beverages">Beverages</option>
+    </select>
+
+    <div id="breakfast-menu" class="menu-category-content active">
+        <h3>🌅 Breakfast Menu</h3>
+        <div class="menu-content-flex">
+            <div class="menu-image-wrapper">
+                <div class="menu-image-grid">
+                    <div class="left-images">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\breakfast1.jpeg" alt="Breakfast Meal 1" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Breakfast+1';">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\breakfast2.jpeg" alt="Breakfast Meal 2" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Breakfast+2';">
+                    </div>
+                    <div class="right-image">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\breakfast3.jpeg" alt="Breakfast Meal 3" onerror="this.onerror=null; this.src='https://placehold.co/300x375/d4af37/121212?text=Breakfast+3';">
+                    </div>
+                </div>
+            </div>
+            <div class="menu-list-box">
+                <ul>
+                    <li>Full English Breakfast - KES 850</li>
+                    <li>Pancakes with Syrup & Fruits - KES 600</li>
+                    <li>Mandazi & Kenyan Tea - KES 350</li>
+                    <li>Spanish Omelette - KES 550</li>
+                    <li>French Toast & Sausages - KES 650</li>
+                    <li>Avocado Toast with Eggs - KES 700</li>
+                    <li>Millet Porridge & Sweet Potatoes - KES 400</li>
+                    <li>Chapati & Beans - KES 500</li>
+                    <li>Croissants & Hot Chocolate - KES 550</li>
+                    <li>Scrambled Eggs with Bacon - KES 750</li>
+                    <li>Fruit Platter & Yogurt - KES 500</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div id="lunch-menu" class="menu-category-content">
+        <h3>🌞 Lunch Menu</h3>
+        <div class="menu-content-flex">
+            <div class="menu-image-wrapper">
+                <div class="menu-image-grid">
+                    <div class="left-images">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\lunch1.jpeg" alt="Lunch Meal 1" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Lunch+1';">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\lunch2.jpeg" alt="Lunch Meal 2" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Lunch+2';">
+                    </div>
+                    <div class="right-image">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\lunch3.jpeg" alt="Lunch Meal 3" onerror="this.onerror=null; this.src='https://placehold.co/300x375/d4af37/121212?text=Lunch+3';">
+                    </div>
+                </div>
+            </div>
+            <div class="menu-list-box">
+                <ul>
+                    <li>Nyama Choma with Ugali & Sukuma - KES 950</li>
+                    <li>Chicken Biryani - KES 850</li>
+                    <li>Vegetable Stir Fry & Rice - KES 700</li>
+                    <li>Fish Fillet & Chips - KES 800</li>
+                    <li>Spaghetti Bolognese - KES 850</li>
+                    <li>Beef Burger with Fries - KES 900</li>
+                    <li>Lentil Curry & Chapati - KES 750</li>
+                    <li>Pilau with Kachumbari - KES 800</li>
+                    <li>Chicken Wrap & Salad - KES 850</li>
+                    <li>Grilled Vegetable Sandwich - KES 700</li>
+                    <li>Caesar Salad with Grilled Chicken - KES 800</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="dinner-menu" class="menu-category-content">
+        <h3>🌙 Dinner Menu</h3>
+        <div class="menu-content-flex">
+            <div class="menu-image-wrapper">
+                <div class="menu-image-grid">
+                    <div class="left-images">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\dinner1.jpeg" alt="Dinner Meal 1" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Dinner+1';">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\dinner3.jpeg" alt="Dinner Meal 2" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Dinner+2';">
+                    </div>
+                    <div class="right-image">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\dinner2.jpeg" alt="Dinner Meal 3" onerror="this.onerror=null; this.src='https://placehold.co/300x375/d4af37/121212?text=Dinner+3';">
+                    </div>
+                </div>
+            </div>
+            <div class="menu-list-box">
+                <ul>
+                    <li>Beef Stew & Chapati - KES 800</li>
+                    <li>Grilled Tilapia with Ugali - KES 900</li>
+                    <li>Chicken Curry & Rice - KES 850</li>
+                    <li>Vegetarian Lasagna - KES 750</li>
+                    <li>Lamb Chops & Mashed Potatoes - KES 1000</li>
+                    <li>Stuffed Bell Peppers - KES 700</li>
+                    <li>Fried Rice & Chicken - KES 850</li>
+                    <li>Roasted Duck with Plantains - KES 1100</li>
+                    <li>Butternut Soup & Bread Rolls - KES 600</li>
+                    <li>Githeri with Avocado - KES 650</li>
+                    <li>Seafood Platter - KES 1200</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="beverages-menu" class="menu-category-content">
+        <h3>🍹 Beverages</h3>
+        <div class="menu-content-flex">
+            <div class="menu-image-wrapper">
+                <div class="menu-image-grid">
+                    <div class="left-images">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\drink1.jpeg" alt="Beverage 1" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Drink+1';">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\drink2.jpeg" alt="Beverage 2" onerror="this.onerror=null; this.src='https://placehold.co/300x180/d4af37/121212?text=Drink+2';">
+                    </div>
+                    <div class="right-image">
+                        <img src="SUPREMACY HOTEL SYSTEM\MENU\drink3.jpeg" alt="Beverage 3" onerror="this.onerror=null; this.src='https://placehold.co/300x375/d4af37/121212?text=Drink+3';">
+                    </div>
+                </div>
+            </div>
+            <div class="menu-list-box">
+                <div class="drink-filter" style="text-align: left; margin-bottom: 20px;">
+                    <label for="drinkType" style="font-weight: bold;">Filter by Type:</label>
+                    <select id="drinkType" onchange="filterDrinks()" style="padding: 6px; border-radius: 6px;">
+                        <option value="all">All</option>
+                        <option value="hot">Hot Drinks</option>
+                        <option value="cold">Cold Drinks</option>
+                        <option value="soft">Soft Drinks</option>
+                        <option value="fresh">Fresh Juices</option>
+                    </select>
+                </div>
+                <ul id="drinkList">
+                    <li class="drink-item" data-type="fresh">Fresh Mango Juice - KES 300</li>
+                    <li class="drink-item" data-type="fresh">Fresh Orange Juice - KES 300</li>
+                    <li class="drink-item" data-type="fresh">Pineapple Mint Juice - KES 320</li>
+                    <li class="drink-item" data-type="fresh">Passion Fruit Juice - KES 280</li>
+                    <li class="drink-item" data-type="cold">Milkshake (Vanilla/Chocolate/Strawberry) - KES 400</li>
+                    <li class="drink-item" data-type="hot">Hot Chocolate - KES 350</li>
+                    <li class="drink-item" data-type="hot">Kenyan Chai (Tea) - KES 150</li>
+                    <li class="drink-item" data-type="hot">Masala Chai - KES 200</li>
+                    <li class="drink-item" data-type="hot">Cappuccino - KES 350</li>
+                    <li class="drink-item" data-type="hot">Espresso - KES 300</li>
+                    <li class="drink-item" data-type="hot">Latte - KES 350</li>
+                    <li class="drink-item" data-type="soft">Bottled Water (500ml) - KES 100</li>
+                    <li class="drink-item" data-type="soft">Soft Drinks (Coke, Fanta, Sprite) - KES 150</li>
+                    <li class="drink-item" data-type="soft">Energy Drink (Red Bull) - KES 400</li>
+                    <li class="drink-item" data-type="cold">Mojito (Non-Alcoholic) - KES 450</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="food-order-section">
+      <h2>🍽️ Place Your Order </h2>
+      <label for="food-select-unified">Select a food or drink to add to your order:</label>
+      <select id="food-select-unified" class="food-select">
+        <option value="">-- Choose from any menu --</option>
+        <option value="Full English Breakfast" data-price="850">Full English Breakfast - KES 850</option>
+        <option value="Pancakes with Syrup & Fruits" data-price="600">Pancakes with Syrup & Fruits - KES 600</option>
+        <option value="Mandazi & Kenyan Tea" data-price="350">Mandazi & Kenyan Tea - KES 350</option>
+        <option value="Spanish Omelette" data-price="550">Spanish Omelette - KES 550</option>
+        <option value="French Toast & Sausages" data-price="650">French Toast & Sausages - KES 650</option>
+        <option value="Avocado Toast with Eggs" data-price="700">Avocado Toast with Eggs - KES 700</option>
+        <option value="Millet Porridge & Sweet Potatoes" data-price="400">Millet Porridge & Sweet Potatoes - KES 400</option>
+        <option value="Chapati & Beans" data-price="500">Chapati & Beans - KES 500</option>
+        <option value="Croissants & Hot Chocolate" data-price="550">Croissants & Hot Chocolate - KES 550</option>
+        <option value="Scrambled Eggs with Bacon" data-price="750">Scrambled Eggs with Bacon - KES 750</option>
+        <option value="Fruit Platter & Yogurt" data-price="500">Fruit Platter & Yogurt - KES 500</option>
+        <option value="Nyama Choma with Ugali & Sukuma" data-price="950">Nyama Choma with Ugali & Sukuma - KES 950</option>
+        <option value="Chicken Biryani" data-price="850">Chicken Biryani - KES 850</option>
+        <option value="Vegetable Stir Fry & Rice" data-price="700">Vegetable Stir Fry & Rice - KES 700</option>
+        <option value="Fish Fillet & Chips" data-price="800">Fish Fillet & Chips - KES 800</option>
+        <option value="Spaghetti Bolognese" data-price="850">Spaghetti Bolognese - KES 850</option>
+        <option value="Beef Burger with Fries" data-price="900">Beef Burger with Fries - KES 900</option>
+        <option value="Lentil Curry & Chapati" data-price="750">Lentil Curry & Chapati - KES 750</option>
+        <option value="Pilau with Kachumbari" data-price="800">Pilau with Kachumbari - KES 800</option>
+        <option value="Chicken Wrap & Salad" data-price="850">Chicken Wrap & Salad - KES 850</option>
+        <option value="Grilled Vegetable Sandwich" data-price="700">Grilled Vegetable Sandwich - KES 700</option>
+        <option value="Caesar Salad with Grilled Chicken" data-price="800">Caesar Salad with Grilled Chicken - KES 800</option>
+        <option value="Beef Stew & Chapati" data-price="800">Beef Stew & Chapati - KES 800</option>
+        <option value="Grilled Tilapia with Ugali" data-price="900">Grilled Tilapia with Ugali - KES 900</option>
+        <option value="Chicken Curry & Rice" data-price="850">Chicken Curry & Rice - KES 850</option>
+        <option value="Vegetarian Lasagna" data-price="750">Vegetarian Lasagna - KES 750</option>
+        <option value="Lamb Chops & Mashed Potatoes" data-price="1000">Lamb Chops & Mashed Potatoes - KES 1000</option>
+        <option value="Stuffed Bell Peppers" data-price="700">Stuffed Bell Peppers - KES 700</option>
+        <option value="Fried Rice & Chicken" data-price="850">Fried Rice & Chicken - KES 850</option>
+        <option value="Roasted Duck with Plantains" data-price="1100">Roasted Duck with Plantains - KES 1100</option>
+        <option value="Butternut Soup & Bread Rolls" data-price="600">Butternut Soup & Bread Rolls - KES 600</option>
+        <option value="Githeri with Avocado" data-price="650">Githeri with Avocado - KES 650</option>
+        <option value="Seafood Platter" data-price="1200">Seafood Platter - KES 1200</option>
+        <option value="Fresh Mango Juice" data-price="300">Fresh Mango Juice - KES 300</option>
+        <option value="Fresh Orange Juice" data-price="300">Fresh Orange Juice - KES 300</option>
+        <option value="Pineapple Mint Juice" data-price="320">Pineapple Mint Juice - KES 320</option>
+        <option value="Passion Fruit Juice" data-price="280">Passion Fruit Juice - KES 280</option>
+        <option value="Milkshake (Vanilla/Chocolate/Strawberry)" data-price="400">Milkshake (Vanilla/Chocolate/Strawberry) - KES 400</option>
+        <option value="Hot Chocolate" data-price="350">Hot Chocolate - KES 350</option>
+        <option value="Kenyan Chai (Tea)" data-price="150">Kenyan Chai (Tea) - KES 150</option>
+        <option value="Masala Chai" data-price="200">Masala Chai - KES 200</option>
+        <option value="Cappuccino" data-price="350">Cappuccino - KES 350</option>
+        <option value="Espresso" data-price="300">Espresso - KES 300</option>
+        <option value="Latte" data-price="350">Latte - KES 350</option>
+        <option value="Bottled Water (500ml)" data-price="100">Bottled Water (500ml) - KES 100</option>
+        <option value="Soft Drinks (Coke, Fanta, Sprite)" data-price="150">Soft Drinks (Coke, Fanta, Sprite)</option>
+        <option value="Energy Drink (Red Bull)" data-price="400">Energy Drink (Red Bull)</option>
+        <option value="Mojito (Non-Alcoholic)" data-price="450">Mojito (Non-Alcoholic)</option>
+      </select>
+    </div>
+
+    <div id="order-summary">
+      <h3>🧾 Your Current Order</h3>
+      <div class="item-list" id="global-item-list"></div>
+      <div class="total" id="global-total">Total: KES 0</div>
+      <button onclick="placeOrder()">Place Your Order</button>
+    </div>
+  </section>
+
+  <section id="activities-section" class="activities menu-section">
+    <div class="activity-section" id="indoor-activities-section">
+      <h2>🏠 Indoor Activities</h2>
+      <div class="activity-grid">
+        <div class="activity"><i class="fas fa-spa"></i><span>Spa & Massage</span></div>
+        <div class="activity"><i class="fas fa-swimmer"></i><span>Swimming</span></div>
+        <div class="activity"><i class="fas fa-utensils"></i><span>Fine Dining</span></div>
+        <div class="activity"><i class="fas fa-glass-cheers"></i><span>Wine Tasting</span></div>
+        <div class="activity"><i class="fas fa-dumbbell"></i><span>Gym Access</span></div>
+        <div class="activity"><i class="fas fa-chess-knight"></i><span>Game Room</span></div>
+        <div class="activity"><i class="fas fa-drum"></i><span>Cultural Drumming</span></div>
+        <div class="activity"><i class="fas fa-leaf"></i><span>Nature Walk</span></div>
+        <div class="activity"><i class="fas fa-bolt"></i><span>Sauna</span></div>
+        <div class="activity"><i class="fas fa-book"></i><span>Reading Lounge</span></div>
+        <div class="activity"><i class="fas fa-cocktail"></i><span>Pool Bar</span></div>
+        <div class="activity"><i class="fas fa-theater-masks"></i><span>Live Entertainment</span></div>
+      </div>
+    </div>
+    <div class="activity-section" id="outdoor-activities-section">
+      <h2>🌿 Outdoor Activities</h2>
+      <div class="activity-grid">
+        <div class="activity"><i class="fas fa-mountain"></i><span>Hiking</span></div>
+        <div class="activity"><i class="fas fa-bicycle"></i><span>Cycling</span></div>
+        <div class="activity"><i class="fas fa-umbrella-beach"></i><span>Swimming</span></div>
+        <div class="activity"><i class="fas fa-binoculars"></i><span>Bird Watching</span></div>
+        <div class="activity"><i class="fas fa-fish"></i><span>Fishing</span></div>
+        <div class="activity"><i class="fas fa-hiking"></i><span>Mountain Trek</span></div>
+        <div class="activity"><i class="fas fa-camera-retro"></i><span>Photography Tours</span></div>
+        <div class="activity"><i class="fas fa-plane-departure"></i><span>Airport Shuttle</span></div>
+        <div class="activity"><i class="fas fa-tree"></i><span>Camping</span></div>
+        <div class="activity"><i class="fas fa-water"></i><span>Boat Ride</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gallery-section" class="menu-section">
+    <h2>Hotel Gallery</h2>
+    
+    <div class="gallery-grid">
+      <div class="gallery-item">
+        <img src="SUPREMACY HOTEL SYSTEM\GALLERY\hotel-gallery\Hotellobby.jpeg" alt="Hotel Lobby" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Hotel+Lobby';">
+      </div>
+      <div class="gallery-item">
+        <img src="SUPREMACY HOTEL SYSTEM\GALLERY\hotel-gallery\poolarea.jpeg" alt="Pool Area" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Pool+Area';">
+      </div>
+      <div class="gallery-item">
+        <img src="SUPREMACY HOTEL SYSTEM\GALLERY\hotel-gallery\restuaarant.jpeg" alt="Restaurant" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Restaurant';">
+      </div>
+      <div class="gallery-item">
+        <img src="SUPREMACY HOTEL SYSTEM\GALLERY\hotel-gallery\spa.jpeg" alt="Spa" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Spa';">
+      </div>
+      <div class="gallery-item">
+        <img src="SUPREMACY HOTEL SYSTEM\GALLERY\hotel-gallery\gym.jpeg" alt="Gym" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Gym';">
+      </div>
+      <div class="gallery-item">
+        <img src="SUPREMACY HOTEL SYSTEM\GALLERY\hotel-gallery\confrence room.jpeg" alt="Conference Room" loading="lazy" onerror="this.onerror=null; this.src='https://placehold.co/400x250/d4af37/121212?text=Conference+Room';">
+      </div>
+    </div>
+  </section>
+
+  <section id="reviews-section" class="menu-section">
+    <h2>Guest Reviews</h2>
+    
+    <div class="reviews-container">
+      <div class="review">
+        <div class="review-header">
+          <div class="review-author">John D.</div>
+          <div class="review-rating">★★★★★</div>
+        </div>
+        <div class="review-date">January 2023</div>
+        <div class="review-content">
+          "Absolutely stunning hotel with exceptional service. The spa was incredible!"
+        </div>
+      </div>
+      
+      <div class="review">
+        <div class="review-header">
+          <div class="review-author">Sarah M.</div>
+          <div class="review-rating">★★★★☆</div>
+        </div>
+        <div class="review-date">March 2023</div>
+        <div class="review-content">
+          "Beautiful rooms and amazing food. The staff went above and beyond to make our stay special."
+        </div>
+      </div>
+      
+      <div class="review">
+        <div class="review-header">
+          <div class="review-author">David K.</div>
+          <div class="review-rating">★★★★★</div>
+        </div>
+        <div class="review-date">May 2023</div>
+        <div class="review-content">
+          "The best hotel experience I've had in Nairobi. The attention to detail is remarkable."
+        </div>
+      </div>
+    </div>
+    
+    <button class="add-review-btn" onclick="openReviewForm()">Add Your Review</button>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-content">
+      <p>&copy; 2025 Supremacy Hotel. All rights reserved.</p>
+      <p>Contact us: <a href="mailto:info@supremacyhotel.com">info@supremacyhotel.com</a> | Phone: +254 714 686 019</p>
+    </div>
+  </footer>
+
+  <script>
+    // --- PHP variables passed to JavaScript ---
+    const isGuestLoggedIn = <?php echo $isGuestLoggedIn ? 'true' : 'false'; ?>;
+    const guestFullName = `<?php echo $guestFullName; ?>`;
+    const guestEmail = `<?php echo $guestEmail; ?>`;
+    const guestPhoneNumber = `<?php echo $guestPhoneNumber; ?>`;
+    const phpStatusMessageHtml = `<?php echo addslashes($statusMessageHtml); ?>`; // Escape for JS
+
+    // --- Original Booking Modal Functions (Modified for pre-filling) ---
+    function openBookingModal() {
+      document.getElementById('bookingModal').style.display = 'block';
+      // Set default dates for check-in/out to today and tomorrow
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const formatDate = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+      };
+
+      document.getElementById('checkInDate').value = formatDate(today);
+      document.getElementById('checkOutDate').value = formatDate(tomorrow);
+      
+      // Pre-fill fields if guest is logged in
+      if (isGuestLoggedIn) {
+          document.getElementById('fullName').value = guestFullName;
+          document.getElementById('email').value = guestEmail;
+          document.getElementById('phoneNumber').value = guestPhoneNumber;
+      } else {
+          // Clear fields if not logged in, in case they were previously filled
+          document.getElementById('fullName').value = '';
+          document.getElementById('email').value = '';
+          document.getElementById('phoneNumber').value = '';
+      }
+
+      // Generate CSRF token
+      document.getElementById('csrfToken').value = generateCSRFToken();
+    }
+
+    function closeBookingModal() {
+      document.getElementById('bookingModal').style.display = 'none';
+      // Optionally reset form errors when closing the modal
+      document.querySelectorAll('.error-message').forEach(el => el.remove());
+      document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+    }
+
+    // Form validation
+    function validateBookingForm() {
+      const form = document.getElementById('bookingForm');
+      const fields = [
+        { id: 'fullName', name: 'Full Name', required: true },
+        { id: 'email', name: 'Email', required: true, type: 'email' },
+        { id: 'phoneNumber', name: 'Phone Number', required: true },
+        { id: 'checkInDate', name: 'Check-in Date', required: true },
+        { id: 'checkOutDate', name: 'Check-out Date', required: true },
+        { id: 'numGuests', name: 'Number of Guests', required: true, min: 1 }
+      ];
+
+      let isValid = true;
+      
+      // Clear previous errors
+      document.querySelectorAll('.error-message').forEach(el => el.remove());
+      document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
+      // Validate each field
+      fields.forEach(field => {
+        const input = document.getElementById(field.id);
+        const value = input.value.trim();
+        
+        if (field.required && !value) {
+          showError(input, `${field.name} is required`);
+          isValid = false;
+        }
+        
+        if (field.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          showError(input, 'Please enter a valid email address');
+          isValid = false;
+        }
+        
+        if (field.min && parseInt(value) < field.min) {
+          showError(input, `${field.name} must be at least ${field.min}`);
+          isValid = false;
+        }
+      });
+
+      // Date validation
+      const checkIn = new Date(document.getElementById('checkInDate').value);
+      const checkOut = new Date(document.getElementById('checkOutDate').value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (checkIn < today) {
+        showError(document.getElementById('checkInDate'), 'Check-in date cannot be in the past');
+        isValid = false;
+      }
+
+      if (checkOut <= checkIn) {
+        showError(document.getElementById('checkOutDate'), 'Check-out date must be after check-in date');
+        isValid = false;
+      }
+
+      return isValid;
+    }
+
+    function showError(input, message) {
+      const error = document.createElement('div');
+      error.className = 'error-message';
+      error.textContent = message;
+      input.parentNode.appendChild(error);
+      input.classList.add('input-error');
+    }
+
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+      if (!validateBookingForm()) {
+        e.preventDefault();
+        return;
+      }
+
+      const submitBtn = this.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    });
+    
+    // --- Display PHP status messages ---
+    function displayPhpStatusMessage() {
+      const statusMessageContainer = document.getElementById('phpStatusMessage');
+
+      if (phpStatusMessageHtml) {
+        statusMessageContainer.innerHTML = phpStatusMessageHtml;
+        statusMessageContainer.classList.add('active'); // Show the message container
+
+        // Determine the message type for styling
+        if (phpStatusMessageHtml.includes('success-message')) {
+            statusMessageContainer.classList.add('success');
+        } else if (phpStatusMessageHtml.includes('error-message')) {
+            statusMessageContainer.classList.add('error');
+        } else if (phpStatusMessageHtml.includes('info-message')) { // NEW: For info messages
+            statusMessageContainer.classList.add('info');
+        }
+
+        setTimeout(() => {
+          statusMessageContainer.classList.remove('active');
+          setTimeout(() => {
+            statusMessageContainer.innerHTML = '';
+            statusMessageContainer.classList.remove('success', 'error', 'info'); // Clear all message classes
+          }, 500); // Match CSS transition time
+        }, 5000); // Message visible for 5 seconds
+      }
+    }
+
+    // --- On page load ---
+    document.addEventListener('DOMContentLoaded', () => {
+      // Display any PHP status messages upon page load
+      displayPhpStatusMessage();
+
+      // Set default dates for check-in/out to today and tomorrow
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const formatDate = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+      };
+
+      // Apply default dates only if fields are empty (e.g., first load)
+      if (!document.getElementById('checkInDate').value) {
+          document.getElementById('checkInDate').value = formatDate(today);
+      }
+      if (!document.getElementById('checkOutDate').value) {
+          document.getElementById('checkOutDate').value = formatDate(tomorrow);
+      }
+      
+      // Generate CSRF token
+      document.getElementById('csrfToken').value = generateCSRFToken();
+      
+      // Initially hide all main sections except the 'home' or default view
+      mainSections.forEach(id => {
+          const section = document.getElementById(`${id}-section`);
+          if (section) {
+              section.style.display = 'none';
+          }
+      });
+      
+      // Ensure the default menu category (Breakfast) is shown when the 'Our Menu' section becomes active.
+      showMenuCategory(); 
+      // Update food order display
+      updateGlobalOrderDisplay();
+      
+      // Show availability checker if dates are already selected
+      if (document.getElementById('checkInDate').value && document.getElementById('checkOutDate').value) {
+        document.getElementById('availability-checker').style.display = 'block';
+      }
+
+      // --- Dynamic display of guest authentication links ---
+      const guestLoginLink = document.getElementById('guestLoginLink');
+      const guestRegisterLink = document.getElementById('guestRegisterLink');
+      const myBookingsLink = document.getElementById('myBookingsLink');
+      const guestLogoutLink = document.getElementById('guestLogoutLink');
+
+      if (isGuestLoggedIn) {
+          guestLoginLink.style.display = 'none';
+          guestRegisterLink.style.display = 'none';
+          myBookingsLink.style.display = 'block';
+          guestLogoutLink.style.display = 'block';
+      } else {
+          guestLoginLink.style.display = 'block';
+          guestRegisterLink.style.display = 'block';
+          myBookingsLink.style.display = 'none';
+          guestLogoutLink.style.display = 'none';
+      }
+    });
+
+    // --- Drink Filter in Beverages Menu ---
+    function filterDrinks() {
+      const filter = document.getElementById('drinkType').value;
+      const drinks = document.querySelectorAll('#drinkList .drink-item');
+      
+      drinks.forEach(drink => {
+        if (filter === 'all') {
+          drink.style.display = 'list-item';
+        } else {
+          drink.style.display = drink.getAttribute('data-type') === filter ? 'list-item' : 'none';
+        }
+      });
+    }
+
+    // --- Food Ordering System ---
+    const globalItemList = document.getElementById("global-item-list");
+    const globalTotalDisplay = document.getElementById("global-total");
+    let globalOrderItems = [];
+    let globalTotalAmount = 0;
+
+    document.getElementById("food-select-unified").addEventListener("change", (event) => {
+        const selectedOption = event.target.options[event.target.selectedIndex];
+        const name = selectedOption.value;
+        const price = parseInt(selectedOption.getAttribute("data-price"));
+
+        if (name && !isNaN(price)) {
+            const existingItem = globalOrderItems.find(item => item.name === name);
+            if (existingItem) {
+                existingItem.quantity = (existingItem.quantity || 1) + 1;
+            } else {
+                globalOrderItems.push({ name, price, quantity: 1 });
+            }
+            globalTotalAmount += price;
+            updateGlobalOrderDisplay();
+        }
+        event.target.selectedIndex = 0;
+    });
+
+    function updateGlobalOrderDisplay() {
+      globalItemList.innerHTML = "";
+      if (globalOrderItems.length === 0) {
+        globalItemList.innerHTML = '<p style="text-align: center; color: #aaa;">Your order is empty.</p>';
+      } else {
+        globalOrderItems.forEach((item, index) => {
+          const div = document.createElement("div");
+          div.innerHTML = `
+            <span>${item.name} (x${item.quantity}) - KES ${(item.price * item.quantity).toLocaleString()}</span>
+            <button class="remove-item" onclick="removeGlobalOrderItem(${index})">Remove</button>
+          `;
+          globalItemList.appendChild(div);
+        });
+      }
+      globalTotalDisplay.textContent = `Total: KES ${globalTotalAmount.toLocaleString()}`;
+    }
+
+    function removeGlobalOrderItem(index) {
+      const removedItem = globalOrderItems[index];
+      if (removedItem.quantity > 1) {
+          removedItem.quantity -= 1;
+          globalTotalAmount -= removedItem.price;
+      } else {
+          globalOrderItems.splice(index, 1);
+          globalTotalAmount -= removedItem.price;
+      }
+      updateGlobalOrderDisplay();
+    }
+
+    function placeOrder() {
+      if (globalOrderItems.length === 0) {
+        alert("Please select at least one item to place your order.");
+        return;
+      }
+      const orderDetails = globalOrderItems.map(item => `${item.name} (x${item.quantity}) - KES ${(item.price * item.quantity).toLocaleString()}`).join('\n');
+      alert(`✅ Your order has been placed!\n\nOrder Details:\n${orderDetails}\n\nTotal: KES ${globalTotalAmount.toLocaleString()}\n\nOur service team will be with you shortly.`);
+      globalOrderItems = [];
+      globalTotalAmount = 0;
+      updateGlobalOrderDisplay();
+    }
+
+    // --- Off-canvas Menu and Section Management ---
+    const offCanvasMenu = document.getElementById('offCanvasMenu');
+    const menuToggleButton = document.getElementById('menu-toggle');
+    const mainSections = ['camping-fees', 'our-menu', 'activities', 'gallery', 'reviews']; 
+
+    function toggleMenu(targetSectionId) {
+      offCanvasMenu.classList.toggle('active');
+      document.body.style.overflow = offCanvasMenu.classList.contains('active') ? 'hidden' : '';
+
+      // Hide all content sections when the main off-canvas menu is active
+      mainSections.forEach(id => {
+          const section = document.getElementById(`${id}-section`);
+          if (section) {
+              section.style.display = 'none';
+          }
+      });
+
+      // If a specific section is targeted by a menu link, show it
+      if (targetSectionId && targetSectionId !== 'home') {
+        const sectionToShow = document.getElementById(`${targetSectionId}-section`);
+        if (sectionToShow) {
+          sectionToShow.style.display = 'block';
+          setTimeout(() => {
+            sectionToShow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 600);
+        }
+      } else if (targetSectionId === 'home') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    function closeMenu() {
+        offCanvasMenu.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    menuToggleButton.addEventListener('click', toggleMenu);
+
+    document.querySelectorAll('.dropdown-menu a').forEach(link => {
+        link.addEventListener('click', function(event) {
+            const href = this.getAttribute('href'); 
+            if (href.startsWith('#')) {
+                const targetId = href.substring(1); 
+                event.preventDefault(); 
+                if (targetId === 'home-section') {
+                    toggleMenu('home'); 
+                } else {
+                    toggleMenu(targetId.replace('-section', '')); 
+                }
+            } else {
+                closeMenu();
+            }
+        });
+    });
+
+    // --- Handle dropdown selection from room cards (Activities & Meals) ---
+    function handleRoomDropdown(selectedValue) {
+        mainSections.forEach(id => {
+            const section = document.getElementById(`${id}-section`);
+            if (section) {
+                section.style.display = 'none';
+            }
+        });
+
+        let sectionToShow = null;
+        if (selectedValue === 'meals') {
+            sectionToShow = document.getElementById('our-menu-section');
+        } else if (selectedValue === 'indoor-activities' || selectedValue === 'outdoor-activities') {
+            sectionToShow = document.getElementById('activities-section');
+        } else if (selectedValue === 'camping-fees') {
+            sectionToShow = document.getElementById('camping-fees-section');
+        } else if (selectedValue === 'gallery') {
+            sectionToShow = document.getElementById('gallery-section');
+        } else if (selectedValue === 'reviews') {
+            sectionToShow = document.getElementById('reviews-section');
+        }
+
+        if (sectionToShow) {
+            sectionToShow.style.display = 'block';
+            setTimeout(() => {
+                sectionToShow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+        document.querySelectorAll('.room-card select').forEach(dropdown => {
+            dropdown.value = '';
+        });
+    }
+
+    // --- Room Availability Checker ---
+    function checkAvailability() {
+      const roomType = document.getElementById('roomTypeSelectBooking').value;
+      const checkIn = document.getElementById('checkInDate').value;
+      const checkOut = document.getElementById('checkOutDate').value;
+      
+      if (!roomType || !checkIn || !checkOut) {
+        alert('Please select room type and dates first');
+        return;
+      }
+
+      const availabilityMessage = document.getElementById('availability-message');
+      availabilityMessage.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking availability...';
+
+      setTimeout(() => {
+        const isAvailable = Math.random() > 0.3;
+        if (isAvailable) {
+          availabilityMessage.innerHTML = '<span style="color:green;"><i class="fas fa-check"></i> Available!</span>';
+        } else {
+          availabilityMessage.innerHTML = '<span style="color:red;"><i class="fas fa-times"></i> Not available for selected dates</span>';
+        }
+      }, 1000);
+    }
+
+    // Show availability checker when dates are selected
+    document.getElementById('checkInDate').addEventListener('change', function() {
+      if (this.value && document.getElementById('checkOutDate').value) {
+        document.getElementById('availability-checker').style.display = 'block';
+      }
+    });
+    document.getElementById('checkOutDate').addEventListener('change', function() {
+      if (this.value && document.getElementById('checkInDate').value) {
+        document.getElementById('availability-checker').style.display = 'block';
+      }
+    });
+
+    // --- CSRF Protection ---
+    function generateCSRFToken() {
+      return Math.random().toString(36).substring(2, 15) + 
+             Math.random().toString(36).substring(2, 15);
+    }
+
+    // --- Review Form ---
+    function openReviewForm() {
+      const name = prompt("Please enter your name:");
+      if (name === null) return;
+      
+      let rating;
+      while (true) {
+        rating = prompt("Please enter your rating (1-5 stars):");
+        if (rating === null) return;
+        if (/^[1-5]$/.test(rating)) break;
+        alert("Please enter a number between 1 and 5");
+      }
+      
+      const reviewText = prompt("Please enter your review:");
+      if (reviewText === null) return;
+      
+      const reviewsContainer = document.querySelector('.reviews-container');
+      const newReview = document.createElement('div');
+      newReview.className = 'review';
+      newReview.innerHTML = `
+        <div class="review-header">
+          <div class="review-author">${name}</div>
+          <div class="review-rating">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div>
+        </div>
+        <div class="review-date">${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
+        <div class="review-content">
+          "${reviewText}"
+        </div>
+      `;
+      
+      reviewsContainer.prepend(newReview);
+      alert("Thank you for your review!");
+    }
+
+    // --- Function to show selected menu category ---
+    function showMenuCategory() {
+        const selectedCategory = document.getElementById('menu-category-select').value;
+        document.querySelectorAll('.menu-category-content').forEach(section => {
+            section.classList.remove('active');
+        });
+        const sectionToShow = document.getElementById(`${selectedCategory}-menu`);
+        if (sectionToShow) {
+            sectionToShow.classList.add('active');
+        }
+        if (selectedCategory === 'beverages') {
+            filterDrinks();
+        }
+    }
+  </script>
+</body>
+</html>
